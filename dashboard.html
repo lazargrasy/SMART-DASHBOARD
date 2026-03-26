@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Reminder Board – Pro (Offline)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Space Grotesk', 'sans-serif'],
+                        sans: ['DM Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        bg: 'var(--bg)', fg: 'var(--fg)', muted: 'var(--muted)',
+                        accent: 'var(--accent)', card: 'var(--card)', border: 'var(--border)', surface: 'var(--surface)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --bg: #0a0f1a; --fg: #e8edf5; --muted: #6b7a94; --accent: #00d4aa;
+            --card: #111827; --border: #1f2937; --surface: #151d2e;
+        }
+        .light {
+            --bg: #f8fafc; --fg: #0f172a; --muted: #64748b; --accent: #0891b2;
+            --card: #ffffff; --border: #e2e8f0; --surface: #f1f5f9;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'DM Sans', sans-serif; background-color: var(--bg); color: var(--fg); overflow-x: hidden; }
+        .font-display { font-family: 'Space Grotesk', sans-serif; }
+        .bg-pattern {
+            background-image: radial-gradient(circle at 20% 80%, rgba(0, 212, 170, 0.08) 0%, transparent 50%),
+                              radial-gradient(circle at 80% 20%, rgba(0, 212, 170, 0.05) 0%, transparent 50%),
+                              linear-gradient(180deg, var(--bg) 0%, var(--surface) 100%);
+            background-attachment: fixed;
+        }
+        .light .bg-pattern {
+            background-image: radial-gradient(circle at 20% 80%, rgba(8, 145, 178, 0.1) 0%, transparent 50%),
+                              radial-gradient(circle at 80% 20%, rgba(8, 145, 178, 0.08) 0%, transparent 50%),
+                              linear-gradient(180deg, var(--bg) 0%, var(--surface) 100%);
+        }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        
+        .animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+        .animate-slide-down { animation: slideDown 0.3s ease-out forwards; }
+        .animate-modal { animation: modalFadeIn 0.3s ease-out forwards; }
+        .stagger-1 { animation-delay: 0.1s; opacity: 0; }
+        .stagger-2 { animation-delay: 0.2s; opacity: 0; }
+        .stagger-3 { animation-delay: 0.3s; opacity: 0; }
+        @media (prefers-reduced-motion: reduce) {
+            .animate-fade-in-up, .animate-slide-down, .animate-modal { animation: none; opacity: 1; transform: none; }
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--surface); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+        .focus-ring:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .priority-high { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; }
+        .priority-medium { background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color: white; }
+        .priority-low { background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; }
+        .btn-primary { background: linear-gradient(135deg, var(--accent) 0%, #00b894 100%); transition: all 0.2s ease; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0, 212, 170, 0.4); }
+        .btn-secondary { background: var(--surface); border: 1px solid var(--border); transition: all 0.2s ease; }
+        .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+        .sidebar-link { transition: all 0.2s ease; position: relative; }
+        .sidebar-link:hover { background: rgba(0, 212, 170, 0.1); }
+        .sidebar-link.active { background: rgba(0, 212, 170, 0.15); }
+        .sidebar-link.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+        .upload-zone { border: 2px dashed var(--border); transition: all 0.3s ease; }
+        .upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: rgba(0, 212, 170, 0.05); }
+        .toast { animation: slideDown 0.3s ease-out forwards; }
+        .attendance-safe { background: linear-gradient(90deg, #059669 0%, #10b981 100%); }
+        .attendance-warning { background: linear-gradient(90deg, #d97706 0%, #f59e0b 100%); }
+        .attendance-critical { background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%); }
+        input, textarea, select { background: var(--surface); border: 1px solid var(--border); color: var(--fg); transition: border-color 0.2s; }
+        input:focus, textarea:focus, select:focus { border-color: var(--accent); outline: none; }
+        .modal-overlay { background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); }
+    </style>
+</head>
+<body class="min-h-screen bg-pattern">
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2"></div>
+    <div id="app"></div>
+    <div id="modal-root" class="hidden fixed inset-0 z-50"></div>
+
+    <script>
+        // ==================== DATABASE & PERSISTENCE ====================
+        const DB_KEY = 'smartBoardProDb';
+        
+        const defaultData = {
+            users: [
+                { id: '1', registerNo: 'FAC001', password: '12345678', role: 'admin', name: 'Dr. Sarah Mitchell', studentId: null },
+                { id: '2', registerNo: 'STU001', password: '12345678', role: 'student', name: 'Alex Johnson', studentId: 'STU001' },
+                { id: '3', registerNo: 'STU002', password: '12345678', role: 'student', name: 'Jane Williams', studentId: 'STU002' },
+                { id: '4', registerNo: 'STU003', password: '12345678', role: 'student', name: 'Mike Chen', studentId: 'STU003' }
+            ],
+            deadlines: [
+                { id: 'd1', title: 'SPM Project Report', category: 'Software Project Management', dueDate: getDate(5), priority: 'high', description: 'Final project report including Gantt charts.', instructions: 'Submit a single PDF file.', attachments: [] },
+                { id: 'd2', title: 'IoT Sensor Analysis', category: 'Internet of Things', dueDate: getDate(10), priority: 'medium', description: 'Analyze sensor data from campus deployment.', instructions: 'Submit Python notebook.', attachments: [] },
+                { id: 'd3', title: 'Turing Machine Design', category: 'Theory of Computation', dueDate: getDate(15), priority: 'low', description: 'Design a Turing Machine.', instructions: 'Submit scanned document.', attachments: [] },
+                { id: 'd4', title: 'VM Setup Lab', category: 'Datacenter & Virtualization', dueDate: getDate(20), priority: 'high', description: 'Configure a virtual network.', instructions: 'Submit screenshots.', attachments: [] }
+            ],
+            announcements: [
+                { id: 'a1', title: 'Mid-Semester Exams', content: 'Exams scheduled from April 10-17.', date: '2025-02-01', pinned: true },
+                { id: 'a2', title: 'Lab Timing Change', content: 'IoT Lab rescheduled to 2 PM Tuesdays.', date: '2025-01-28', pinned: true }
+            ],
+            subjects: [
+                { id: 's1', name: 'Software Project Management', code: 'CS601', materials: [] },
+                { id: 's2', name: 'Internet of Things', code: 'CS602', materials: [] },
+                { id: 's3', name: 'Theory of Computation', code: 'CS603', materials: [] },
+                { id: 's4', name: 'Datacenter & Virtualization', code: 'CS604', materials: [] }
+            ],
+            submissions: [],
+            attendance: [
+                { id: 'att1', studentId: 'STU001', subjectId: 's1', totalClasses: 20, attendedClasses: 18 },
+                { id: 'att2', studentId: 'STU001', subjectId: 's2', totalClasses: 18, attendedClasses: 14 },
+                { id: 'att3', studentId: 'STU001', subjectId: 's3', totalClasses: 22, attendedClasses: 15 },
+                { id: 'att4', studentId: 'STU001', subjectId: 's4', totalClasses: 15, attendedClasses: 8 },
+                { id: 'att5', studentId: 'STU002', subjectId: 's1', totalClasses: 20, attendedClasses: 19 },
+                { id: 'att6', studentId: 'STU003', subjectId: 's1', totalClasses: 20, attendedClasses: 12 }
+            ],
+            reminders: [
+                { id: 'r1', studentId: 'STU001', text: 'Return library books', dueDate: '2025-02-12', completed: false }
+            ]
+        };
+
+        // Initialize Database
+        let Database = loadDatabase();
+
+        function getDate(daysFromNow) {
+            const date = new Date();
+            date.setDate(date.getDate() + daysFromNow);
+            return date.toISOString().split('T')[0];
+        }
+
+        function loadDatabase() {
+            try {
+                const stored = localStorage.getItem(DB_KEY);
+                if (stored) {
+                    return JSON.parse(stored);
+                }
+            } catch (e) {
+                console.error("Error loading from local storage", e);
+            }
+            return JSON.parse(JSON.stringify(defaultData)); // Deep copy
+        }
+
+        function saveDatabase() {
+            try {
+                localStorage.setItem(DB_KEY, JSON.stringify(Database));
+            } catch (e) {
+                console.error("Error saving to local storage (likely full)", e);
+                showToast('Storage full! Delete some materials.', 'error');
+            }
+        }
+
+        // ==================== STATE MANAGEMENT ====================
+        let currentUser = null;
+        let currentPage = 'login';
+        let currentStudentPage = 'home';
+        let currentAdminPage = 'home';
+        let sidebarOpen = false;
+        let isDarkMode = true;
+        let isLoginMode = true;
+
+        // ==================== UTILITIES ====================
+        const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        
+        const getDaysRemaining = (dateStr) => {
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const dueDate = new Date(dateStr);
+            return Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+        };
+
+        const showToast = (message, type = 'success') => {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-accent' : type === 'error' ? 'bg-red-500' : 'bg-yellow-500';
+            toast.className = `toast px-4 py-3 rounded-lg ${bgColor} text-white font-medium shadow-lg max-w-sm flex items-center gap-2`;
+            toast.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    ${type === 'success' ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'}
+                </svg>
+                ${message}
+            `;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+        };
+
+        const toggleTheme = () => { isDarkMode = !isDarkMode; document.body.classList.toggle('light', !isDarkMode); render(); };
+
+        // ==================== MODAL SYSTEM ====================
+        const openModal = (content) => {
+            const root = document.getElementById('modal-root');
+            root.className = 'fixed inset-0 z-50 flex items-center justify-center p-4';
+            root.innerHTML = `
+                <div class="absolute inset-0 modal-overlay" onclick="closeModal()"></div>
+                <div class="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-modal">
+                    ${content}
+                </div>
+            `;
+        };
+
+        const closeModal = () => {
+            const root = document.getElementById('modal-root');
+            root.className = 'hidden';
+            root.innerHTML = '';
+        };
+
+        // ==================== FILE HANDLING ====================
+        const viewDocument = (url, name) => {
+            if(!url) return;
+            const isImage = url.startsWith('data:image') || /\.(jpg|jpeg|png|gif)$/i.test(name);
+            const isPdf = url.startsWith('data:application/pdf') || /\.pdf$/i.test(name);
+            
+            let content = '';
+            if (isImage) {
+                content = `<img src="${url}" alt="${name}" class="max-w-full max-h-[80vh] object-contain mx-auto" />`;
+            } else if (isPdf) {
+                content = `<iframe src="${url}" class="w-full h-[80vh]" frameborder="0"></iframe>`;
+            } else {
+                content = `<div class="p-8 text-center text-muted">Cannot preview this file type.</div>`;
+            }
+
+            openModal(`
+                <div class="p-4 border-b border-border flex justify-between items-center bg-surface">
+                    <h3 class="font-display font-bold text-fg truncate">${name}</h3>
+                    <button onclick="closeModal()" class="p-2 hover:bg-surface rounded-lg text-muted hover:text-fg transition-colors focus-ring">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="p-4 overflow-auto flex-1 bg-surface/50 flex items-center justify-center">
+                    ${content}
+                </div>
+                <div class="p-4 border-t border-border flex justify-end gap-2 bg-surface">
+                    <a href="${url}" download="${name}" class="btn-primary px-4 py-2 rounded-lg text-white font-medium text-sm focus-ring">Download</a>
+                </div>
+            `);
+        };
+
+        // ==================== AUTH FUNCTIONS ====================
+        function handleAuth() {
+            const regNo = document.getElementById('auth-reg').value;
+            const password = document.getElementById('auth-password').value;
+            
+            if (!regNo || !password) {
+                showToast('Please fill in all fields', 'error');
+                return;
+            }
+
+            if (isLoginMode) {
+                const user = Database.users.find(u => u.registerNo === regNo && u.password === password);
+                if (user) {
+                    currentUser = user;
+                    currentPage = user.role;
+                    render();
+                    showToast(`Welcome back, ${user.name}!`);
+                } else {
+                    showToast('Invalid Register No. or password', 'error');
+                }
+            } else {
+                if (Database.users.find(u => u.registerNo === regNo)) {
+                    showToast('Register Number already exists', 'error');
+                    return;
+                }
+                
+                const name = document.getElementById('auth-name').value;
+                const role = document.getElementById('auth-role').value;
+                
+                if (!name) {
+                    showToast('Please enter your name', 'error');
+                    return;
+                }
+
+                const newUser = {
+                    id: String(Date.now()),
+                    registerNo: regNo,
+                    password,
+                    role,
+                    name,
+                    studentId: role === 'student' ? regNo : null
+                };
+                
+                Database.users.push(newUser);
+                saveDatabase();
+                currentUser = newUser;
+                currentPage = role;
+                render();
+                showToast('Account created successfully!');
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            currentPage = 'login';
+            currentStudentPage = 'home';
+            currentAdminPage = 'home';
+            render();
+        }
+
+        function updateUserProfile(newName, newStudentId) {
+            if(!currentUser) return;
+            const user = Database.users.find(u => u.id === currentUser.id);
+            if(user) {
+                user.name = newName;
+                if(user.role === 'student') user.studentId = newStudentId;
+                currentUser = user;
+                saveDatabase();
+                showToast('Profile updated successfully!');
+                render();
+            }
+        }
+
+        // ==================== CRUD OPERATIONS ====================
+        function submitAssignment(deadlineId, file) {
+            if (!currentUser || currentUser.role !== 'student') return;
+            if (Database.submissions.some(s => s.deadlineId === deadlineId && s.studentId === currentUser.studentId)) {
+                showToast('You have already submitted this assignment', 'warning');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                Database.submissions.push({
+                    id: 'sub' + Date.now(),
+                    deadlineId, studentId: currentUser.studentId,
+                    fileUrl: e.target.result, fileName: file.name,
+                    submittedAt: new Date().toISOString().split('T')[0],
+                    submissionType: 'online', status: 'pending'
+                });
+                saveDatabase();
+                showToast('Document submitted successfully!');
+                render();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function verifySubmission(id) {
+            const sub = Database.submissions.find(s => s.id === id);
+            if(sub) { sub.status = 'verified'; saveDatabase(); showToast('Submission verified!'); render(); }
+        }
+
+        function markInPersonSubmission(deadlineId, studentId) {
+            Database.submissions.push({
+                id: 'sub' + Date.now(), deadlineId, studentId,
+                fileUrl: null, fileName: null,
+                submittedAt: new Date().toISOString().split('T')[0],
+                submissionType: 'in-person', status: 'verified'
+            });
+            saveDatabase();
+            showToast('In-person submission recorded!'); render();
+        }
+
+        function addMaterial(subjectId, file) {
+            const subject = Database.subjects.find(s => s.id === subjectId);
+            if (!subject) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                subject.materials.push({ id: 'm' + Date.now(), name: file.name, url: e.target.result });
+                saveDatabase();
+                showToast(`Material "${file.name}" uploaded!`);
+                render();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function deleteMaterial(subjectId, materialId) {
+            const subject = Database.subjects.find(s => s.id === subjectId);
+            if(subject) {
+                subject.materials = subject.materials.filter(m => m.id !== materialId);
+                saveDatabase();
+                showToast('Material deleted.'); render();
+            }
+        }
+
+        function addDeadline(data) {
+            Database.deadlines.push({ id: 'd' + Date.now(), ...data, attachments: [] });
+            saveDatabase();
+            showToast('Deadline created!'); render();
+        }
+        
+        function deleteDeadline(id) {
+            Database.deadlines = Database.deadlines.filter(d => d.id !== id);
+            saveDatabase();
+            showToast('Deadline deleted!'); render();
+        }
+
+        function addAnnouncement(data) {
+            Database.announcements.push({ id: 'a' + Date.now(), ...data, date: new Date().toISOString().split('T')[0], pinned: false });
+            saveDatabase();
+            showToast('Announcement posted!'); render();
+        }
+        
+        function togglePinAnnouncement(id) {
+            const a = Database.announcements.find(a => a.id === id);
+            if(a) { a.pinned = !a.pinned; saveDatabase(); showToast(a.pinned ? 'Pinned!' : 'Unpinned!'); render(); }
+        }
+        
+        function deleteAnnouncement(id) {
+            Database.announcements = Database.announcements.filter(a => a.id !== id);
+            saveDatabase();
+            showToast('Announcement deleted!'); render();
+        }
+
+        function addReminder(text, dueDate) {
+            if(!currentUser) return;
+            Database.reminders.push({ id: 'r' + Date.now(), studentId: currentUser.studentId, text, dueDate, completed: false });
+            saveDatabase();
+            showToast('Reminder added!'); render();
+        }
+        
+        function toggleReminder(id) {
+            const r = Database.reminders.find(r => r.id === id);
+            if(r) { r.completed = !r.completed; saveDatabase(); render(); }
+        }
+        
+        function deleteReminder(id) {
+            Database.reminders = Database.reminders.filter(r => r.id !== id);
+            saveDatabase();
+            showToast('Reminder deleted!'); render();
+        }
+
+        // ==================== RENDER FUNCTIONS ====================
+        function render() {
+            const app = document.getElementById('app');
+            if(currentPage === 'login') {
+                app.innerHTML = renderLoginPage();
+            } else {
+                if(currentPage === 'student') app.innerHTML = renderStudentDashboard();
+                else app.innerHTML = renderAdminDashboard();
+            }
+        }
+
+        // --- LOGIN PAGE ---
+        function renderLoginPage() {
+            return `
+            <div class="min-h-screen flex">
+                <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-accent/20 to-teal-900/40 items-center justify-center p-12 relative overflow-hidden">
+                    <div class="absolute inset-0 opacity-20">
+                        <svg class="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" stroke-width="0.5"/></pattern></defs>
+                            <rect width="100" height="100" fill="url(#grid)"/>
+                        </svg>
+                    </div>
+                    <div class="relative z-10 text-center">
+                        <div class="w-20 h-20 rounded-2xl bg-accent/20 backdrop-blur-sm flex items-center justify-center mx-auto mb-8 border border-accent/30">
+                            <svg class="w-10 h-10 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                        </div>
+                        <h1 class="font-display text-4xl font-bold text-white mb-4">Smart Reminder Board</h1>
+                        <p class="text-lg text-white/70 max-w-md">Your comprehensive academic management system. Works Offline.</p>
+                    </div>
+                </div>
+                
+                <div class="w-full lg:w-1/2 flex items-center justify-center p-8 bg-bg">
+                    <div class="w-full max-w-md space-y-8 animate-fade-in-up">
+                        <div class="text-center lg:hidden mb-8">
+                            <h1 class="font-display text-2xl font-bold text-fg">Smart Board</h1>
+                        </div>
+                        
+                        <div class="flex bg-surface rounded-xl p-1">
+                            <button onclick="isLoginMode=true; render()" class="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${isLoginMode ? 'bg-accent text-white shadow-lg' : 'text-muted hover:text-fg'}">Sign In</button>
+                            <button onclick="isLoginMode=false; render()" class="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${!isLoginMode ? 'bg-accent text-white shadow-lg' : 'text-muted hover:text-fg'}">Register</button>
+                        </div>
+
+                        <div>
+                            <h2 class="font-display text-2xl font-bold text-fg">${isLoginMode ? 'Welcome back' : 'Create account'}</h2>
+                            <p class="text-muted mt-1">${isLoginMode ? 'Sign in to access your dashboard' : 'Get started with your academic portal'}</p>
+                        </div>
+
+                        <div class="space-y-4">
+                            ${!isLoginMode ? `<div><label class="block text-sm font-medium text-muted mb-1.5">Full Name</label><input type="text" id="auth-name" class="w-full px-4 py-3 rounded-lg focus-ring" placeholder="John Doe" /></div>` : ''}
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-muted mb-1.5">Register Number</label>
+                                <input type="text" id="auth-reg" class="w-full px-4 py-3 rounded-lg focus-ring" placeholder="e.g., STU001 or FAC001" />
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-muted mb-1.5">Password</label>
+                                <input type="password" id="auth-password" class="w-full px-4 py-3 rounded-lg focus-ring" placeholder="••••••••" />
+                            </div>
+
+                            ${!isLoginMode ? `
+                            <div>
+                                <label class="block text-sm font-medium text-muted mb-1.5">I am a...</label>
+                                <select id="auth-role" class="w-full px-4 py-3 rounded-lg focus-ring">
+                                    <option value="student">Student</option>
+                                    <option value="admin">Admin / Faculty</option>
+                                </select>
+                            </div>
+                            ` : ''}
+
+                            <button onclick="handleAuth()" class="btn-primary w-full py-3 rounded-lg text-white font-semibold focus-ring shadow-lg shadow-accent/20">
+                                ${isLoginMode ? 'Sign In' : 'Create Account'}
+                            </button>
+                        </div>
+
+                        <div class="pt-6 border-t border-border">
+                            <div class="grid grid-cols-2 gap-3">
+                                <button onclick="document.getElementById('auth-reg').value='STU001';document.getElementById('auth-password').value='12345678'" class="px-4 py-2.5 bg-surface border border-border rounded-lg text-sm font-medium hover:border-accent transition-all focus-ring">Student </button>
+                                <button onclick="document.getElementById('auth-reg').value='FAC001';document.getElementById('auth-password').value='12345678'" class="px-4 py-2.5 bg-surface border border-border rounded-lg text-sm font-medium hover:border-accent transition-all focus-ring">Admin </button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-center pt-4">
+                             <button onclick="toggleTheme()" class="text-sm text-muted hover:text-accent transition-colors flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">${isDarkMode ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>'}</svg>
+                                Switch to ${isDarkMode ? 'Light' : 'Dark'} Mode
+                             </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+        // --- SHARED LAYOUT COMPONENTS ---
+        function renderSidebar(type) {
+            const navItems = type === 'student' ? [
+                { id: 'home', label: 'Dashboard', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>' },
+                { id: 'deadlines', label: 'Deadlines', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>' },
+                { id: 'academics', label: 'Academics', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>' },
+                { id: 'attendance', label: 'Attendance', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>' },
+                { id: 'reminders', label: 'Reminders', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>' },
+                { id: 'profile', label: 'Profile', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>' }
+            ] : [
+                { id: 'home', label: 'Dashboard', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>' },
+                { id: 'deadlines', label: 'Deadlines', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>' },
+                { id: 'submissions', label: 'Submissions', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>' },
+                { id: 'academics', label: 'Academics', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>' },
+                { id: 'announcements', label: 'Announcements', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/>' },
+                { id: 'profile', label: 'Profile', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>' }
+            ];
+
+            const curPage = type === 'student' ? currentStudentPage : currentAdminPage;
+            const navFn = type === 'student' ? 'navigateStudent' : 'navigateAdmin';
+
+            return `
+            <button onclick="toggleSidebar()" class="fixed top-4 left-4 z-50 md:hidden p-2 rounded-lg bg-card border border-border focus-ring">
+                <svg class="w-6 h-6 text-fg" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <aside class="fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-40 transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 flex flex-col">
+                <div class="p-6 border-b border-border">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-accent to-teal-400 flex items-center justify-center shadow-lg shadow-accent/20">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                        </div>
+                        <div>
+                            <span class="font-display font-bold text-lg text-fg">Smart Board</span>
+                            <p class="text-xs text-muted">${type === 'admin' ? 'Admin Portal' : 'Student Portal'}</p>
+                        </div>
+                    </div>
+                </div>
+                <nav class="flex-1 p-4 overflow-y-auto">
+                    <ul class="space-y-1">
+                        ${navItems.map(item => `
+                            <li>
+                                <button onclick="${navFn}('${item.id}')" class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left ${curPage === item.id ? 'active' : ''} focus-ring">
+                                    <svg class="w-5 h-5 ${curPage === item.id ? 'text-accent' : 'text-muted'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">${item.icon}</svg>
+                                    <span class="${curPage === item.id ? 'text-fg font-medium' : 'text-muted'}">${item.label}</span>
+                                </button>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </nav>
+                <div class="p-4 border-t border-border space-y-2">
+                    <button onclick="toggleTheme()" class="w-full flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-surface transition-colors focus-ring">
+                        <svg class="w-5 h-5 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">${isDarkMode ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>'}</svg>
+                        <span class="text-muted text-sm">${isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+                    </button>
+                    <button onclick="logout()" class="w-full flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-red-500/10 text-red-400 transition-colors focus-ring">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                        <span class="text-sm">Sign Out</span>
+                    </button>
+                </div>
+            </aside>
+            ${sidebarOpen ? `<div onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-30 md:hidden"></div>` : ''}
+            `;
+        }
+
+        function toggleSidebar() { sidebarOpen = !sidebarOpen; render(); }
+        function navigateStudent(p) { currentStudentPage = p; sidebarOpen = false; render(); }
+        function navigateAdmin(p) { currentAdminPage = p; sidebarOpen = false; render(); }
+
+        // --- STUDENT CONTENT ---
+        function renderStudentDashboard() {
+            let content = '';
+            switch(currentStudentPage) {
+                case 'home': content = renderStudentHome(); break;
+                case 'deadlines': content = renderDeadlines(); break;
+                case 'academics': content = renderStudentAcademics(); break;
+                case 'attendance': content = renderAttendance(); break;
+                case 'reminders': content = renderReminders(); break;
+                case 'profile': content = renderProfile(); break;
+            }
+            return `<div class="flex min-h-screen">${renderSidebar('student')}<main class="flex-1 md:ml-64 p-4 md:p-8 overflow-y-auto h-screen">${content}</main></div>`;
+        }
+
+        function renderStudentHome() {
+            const upcoming = Database.deadlines.filter(d => getDaysRemaining(d.dueDate) >= 0).sort((a,b) => new Date(a.dueDate) - new Date(b.dueDate)).slice(0, 3);
+            return `
+            <div class="max-w-6xl mx-auto space-y-8 animate-fade-in-up">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 class="font-display text-3xl font-bold text-fg">Welcome back, ${currentUser.name.split(' ')[0]}</h1>
+                        <p class="text-muted">Here's your academic overview for today.</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm text-muted">${formatDate(new Date())}</div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-card border border-border rounded-xl p-5 hover:border-accent/50 transition-colors"><div class="text-muted text-sm mb-1">Pending Tasks</div><div class="font-display text-3xl font-bold text-fg">${Database.deadlines.filter(d => getDaysRemaining(d.dueDate) >= 0).length}</div></div>
+                    <div class="bg-card border border-border rounded-xl p-5 hover:border-accent/50 transition-colors"><div class="text-muted text-sm mb-1">Submitted</div><div class="font-display text-3xl font-bold text-accent">${Database.submissions.filter(s => s.studentId === currentUser.studentId).length}</div></div>
+                    <div class="bg-card border border-border rounded-xl p-5 hover:border-accent/50 transition-colors"><div class="text-muted text-sm mb-1">Reminders</div><div class="font-display text-3xl font-bold text-fg">${Database.reminders.filter(r => !r.completed && r.studentId === currentUser.studentId).length}</div></div>
+                    <div class="bg-card border border-border rounded-xl p-5 hover:border-accent/50 transition-colors"><div class="text-muted text-sm mb-1">Subjects</div><div class="font-display text-3xl font-bold text-fg">${Database.subjects.length}</div></div>
+                </div>
+                <div class="grid lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 space-y-4">
+                        <div class="flex items-center justify-between"><h2 class="font-display text-xl font-semibold text-fg">Upcoming Deadlines</h2><button onclick="navigateStudent('deadlines')" class="text-accent text-sm font-medium hover:underline">View all</button></div>
+                        ${upcoming.map(d => {
+                            const sub = Database.submissions.find(s => s.deadlineId === d.id && s.studentId === currentUser.studentId);
+                            return `
+                            <div class="bg-card border border-border rounded-xl p-4 hover:border-accent/30 transition-colors cursor-pointer" onclick="navigateStudent('deadlines')">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="p-2 rounded-lg ${d.priority === 'high' ? 'bg-red-500/10' : d.priority === 'medium' ? 'bg-yellow-500/10' : 'bg-green-500/10'}">
+                                            <svg class="w-5 h-5 ${d.priority === 'high' ? 'text-red-400' : d.priority === 'medium' ? 'text-yellow-400' : 'text-green-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-medium text-fg">${d.title}</h3>
+                                            <p class="text-sm text-muted">${d.category}</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="font-display font-semibold ${getDaysRemaining(d.dueDate) <= 2 ? 'text-red-400' : 'text-fg'}">${getDaysRemaining(d.dueDate)}d left</div>
+                                        ${sub ? '<span class="text-xs text-accent">Submitted</span>' : '<span class="text-xs text-muted">Pending</span>'}
+                                    </div>
+                                </div>
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    <div class="space-y-4">
+                        <h2 class="font-display text-xl font-semibold text-fg">Announcements</h2>
+                        ${Database.announcements.filter(a => a.pinned).map(a => `
+                        <div class="bg-card border border-border rounded-xl p-4">
+                            <div class="flex items-center gap-2 mb-2"><span class="w-2 h-2 rounded-full bg-accent animate-pulse"></span><span class="text-xs text-muted">${formatDate(a.date)}</span></div>
+                            <h3 class="font-medium text-fg mb-1">${a.title}</h3>
+                            <p class="text-sm text-muted line-clamp-2">${a.content}</p>
+                        </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+        function renderDeadlines() {
+            return `
+            <div class="max-w-5xl mx-auto space-y-6 animate-fade-in-up">
+                <div class="border-b border-border pb-4"><h1 class="font-display text-2xl font-bold text-fg">Deadlines & Submissions</h1><p class="text-muted">Track and submit your assignments</p></div>
+                <div class="space-y-4">
+                    ${Database.deadlines.sort((a,b) => new Date(a.dueDate) - new Date(b.dueDate)).map(d => {
+                        const sub = Database.submissions.find(s => s.deadlineId === d.id && s.studentId === currentUser.studentId);
+                        const isPast = getDaysRemaining(d.dueDate) < 0;
+                        return `
+                        <div class="bg-card border border-border rounded-xl overflow-hidden ${isPast ? 'opacity-60' : ''}">
+                            <div class="p-5">
+                                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div class="flex items-start gap-4">
+                                        <div class="p-3 rounded-xl bg-surface mt-1">
+                                            <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                        </div>
+                                        <div>
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <span class="priority-${d.priority} px-2 py-0.5 rounded text-xs font-semibold uppercase">${d.priority}</span>
+                                                <span class="text-xs text-muted">${d.category}</span>
+                                            </div>
+                                            <h3 class="font-display text-lg font-semibold text-fg">${d.title}</h3>
+                                            <p class="text-sm text-muted mt-1">${d.description}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col items-end gap-2">
+                                        <div class="font-display text-xl font-bold ${getDaysRemaining(d.dueDate) <= 3 && !isPast ? 'text-red-400' : 'text-fg'}">${isPast ? 'Closed' : getDaysRemaining(d.dueDate) + ' days'}</div>
+                                        <div class="text-sm text-muted">Due ${formatDate(d.dueDate)}</div>
+                                        ${sub ? '<span class="text-xs px-2 py-1 rounded bg-accent/20 text-accent font-medium">Submitted</span>' : ''}
+                                    </div>
+                                </div>
+                                ${!isPast ? `
+                                <div class="mt-5 pt-5 border-t border-border">
+                                    ${!sub ? `
+                                        <div class="flex flex-col md:flex-row gap-4 items-center">
+                                            <div class="flex-1 w-full">
+                                                <label class="upload-zone flex flex-col items-center justify-center rounded-lg p-6 cursor-pointer">
+                                                    <svg class="w-8 h-8 text-muted mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                                    <p class="text-sm text-muted">Click to upload scanned document</p>
+                                                    <p class="text-xs text-muted mt-1">PDF or Image</p>
+                                                    <input type="file" class="hidden" accept="image/*,.pdf" onchange="submitAssignment('${d.id}', this.files[0])">
+                                                </label>
+                                            </div>
+                                        </div>
+                                    ` : `
+                                        <div class="flex items-center justify-between bg-surface rounded-lg p-4">
+                                            <div class="flex items-center gap-3">
+                                                <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                <span class="text-fg font-medium">Submitted on ${formatDate(sub.submittedAt)}</span>
+                                            </div>
+                                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${sub.status === 'verified' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}">${sub.status}</span>
+                                        </div>
+                                    `}
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+            `;
+        }
+
+        function renderStudentAcademics() {
+            return `
+            <div class="max-w-6xl mx-auto space-y-6 animate-fade-in-up">
+                <div><h1 class="font-display text-2xl font-bold text-fg">Academic Resources</h1><p class="text-muted">Download study materials</p></div>
+                <div class="grid md:grid-cols-2 gap-6">
+                    ${Database.subjects.map(s => `
+                    <div class="bg-card border border-border rounded-xl overflow-hidden">
+                        <div class="p-4 border-b border-border bg-surface/50"><h3 class="font-display font-semibold text-fg">${s.name}</h3><p class="text-xs text-muted">${s.code}</p></div>
+                        <div class="p-4 space-y-2">
+                            ${s.materials.length > 0 ? s.materials.map(m => `
+                            <div class="flex items-center justify-between p-3 bg-surface rounded-lg group">
+                                <div class="flex items-center gap-3 truncate">
+                                    <svg class="w-5 h-5 text-red-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
+                                    <span class="text-sm text-muted truncate">${m.name}</span>
+                                </div>
+                                <button onclick="viewDocument('${m.url}', '${m.name}')" class="p-2 rounded hover:bg-accent/10 text-muted hover:text-accent transition-colors focus-ring">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                </button>
+                            </div>
+                            `).join('') : '<p class="text-sm text-muted py-4 text-center">No materials uploaded yet.</p>'}
+                        </div>
+                    </div>
+                    `).join('')}
+                </div>
+            </div>
+            `;
+        }
+
+        function renderAttendance() {
+            const att = Database.attendance.filter(a => a.studentId === currentUser.studentId);
+            return `
+            <div class="max-w-4xl mx-auto space-y-6 animate-fade-in-up">
+                <div><h1 class="font-display text-2xl font-bold text-fg">Attendance Record</h1><p class="text-muted">Your class attendance summary</p></div>
+                ${att.some(a => (a.attendedClasses / a.totalClasses) < 0.75) ? `<div class="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center gap-3"><svg class="w-6 h-6 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg><div><p class="font-medium text-red-400">Warning: Low Attendance</p><p class="text-sm text-red-300">Some subjects are below the 75% threshold.</p></div></div>` : ''}
+                <div class="grid md:grid-cols-2 gap-4">
+                    ${att.map(a => {
+                        const sub = Database.subjects.find(s => s.id === a.subjectId);
+                        const pct = Math.round((a.attendedClasses / a.totalClasses) * 100);
+                        const status = pct >= 75 ? 'Safe' : pct >= 60 ? 'Warning' : 'Critical';
+                        return `
+                        <div class="bg-card border border-border rounded-xl p-5">
+                            <div class="flex justify-between items-start mb-3">
+                                <div><h3 class="font-medium text-fg">${sub ? sub.name : 'Subject'}</h3><p class="text-xs text-muted">${sub ? sub.code : ''}</p></div>
+                                <span class="px-2 py-1 rounded text-xs font-medium ${status === 'Safe' ? 'bg-green-500/20 text-green-400' : status === 'Warning' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}">${status}</span>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm"><span class="text-muted">Attendance</span><span class="font-bold text-fg">${pct}%</span></div>
+                                <div class="h-2 rounded-full bg-surface overflow-hidden"><div class="h-full rounded-full ${status === 'Safe' ? 'attendance-safe' : status === 'Warning' ? 'attendance-warning' : 'attendance-critical'}" style="width: ${pct}%"></div></div>
+                                <div class="text-right text-xs text-muted">${a.attendedClasses} / ${a.totalClasses} classes</div>
+                            </div>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+            `;
+        }
+
+        function renderReminders() {
+            const rems = Database.reminders.filter(r => r.studentId === currentUser.studentId);
+            return `
+            <div class="max-w-3xl mx-auto space-y-6 animate-fade-in-up">
+                <div><h1 class="font-display text-2xl font-bold text-fg">My Reminders</h1><p class="text-muted">Manage your personal tasks</p></div>
+                <div class="bg-card border border-border rounded-xl p-5">
+                    <h3 class="font-medium text-fg mb-3">Add New</h3>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <input type="text" id="rem-text" class="flex-1 px-4 py-2 rounded-lg focus-ring" placeholder="Reminder text..." />
+                        <input type="date" id="rem-date" class="px-4 py-2 rounded-lg focus-ring" />
+                        <button onclick="addReminder(document.getElementById('rem-text').value, document.getElementById('rem-date').value)" class="btn-primary px-6 py-2 rounded-lg text-white font-medium focus-ring whitespace-nowrap">Add</button>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    ${rems.map(r => `
+                    <div class="bg-card border border-border rounded-xl p-4 flex items-center gap-4 ${r.completed ? 'opacity-60' : ''}">
+                        <button onclick="toggleReminder('${r.id}')" class="w-6 h-6 rounded-full border-2 ${r.completed ? 'bg-accent border-accent' : 'border-border hover:border-accent'} flex items-center justify-center transition-colors focus-ring flex-shrink-0">
+                            ${r.completed ? '<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>' : ''}
+                        </button>
+                        <div class="flex-1 min-w-0"><p class="${r.completed ? 'line-through text-muted' : 'text-fg'} truncate">${r.text}</p><p class="text-xs text-muted">${formatDate(r.dueDate)}</p></div>
+                        <button onclick="deleteReminder('${r.id}')" class="p-2 rounded hover:bg-red-500/10 text-muted hover:text-red-400 transition-colors focus-ring"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                    </div>
+                    `).join('')}
+                </div>
+            </div>
+            `;
+        }
+
+        function renderProfile() {
+            return `
+            <div class="max-w-2xl mx-auto space-y-6 animate-fade-in-up">
+                <div><h1 class="font-display text-2xl font-bold text-fg">My Profile</h1><p class="text-muted">Manage your account settings</p></div>
+                <div class="bg-card border border-border rounded-xl overflow-hidden">
+                    <div class="h-24 bg-gradient-to-r from-accent/30 to-teal-600/30 relative">
+                        <div class="absolute -bottom-10 left-6">
+                            <div class="w-20 h-20 rounded-full bg-gradient-to-br from-accent to-teal-400 flex items-center justify-center border-4 border-card shadow-lg">
+                                <span class="text-3xl font-bold text-white">${currentUser.name.charAt(0)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pt-14 p-6">
+                        <form id="profile-form" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-muted mb-1.5">Full Name</label>
+                                <input type="text" id="prof-name" value="${currentUser.name}" class="w-full px-4 py-2.5 rounded-lg focus-ring" />
+                            </div>
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-muted mb-1.5">Register Number</label>
+                                    <input type="text" value="${currentUser.registerNo}" disabled class="w-full px-4 py-2.5 rounded-lg bg-surface/50 text-muted cursor-not-allowed" />
+                                </div>
+                                ${currentUser.role === 'student' ? `
+                                <div>
+                                    <label class="block text-sm font-medium text-muted mb-1.5">Student ID</label>
+                                    <input type="text" id="prof-sid" value="${currentUser.studentId}" class="w-full px-4 py-2.5 rounded-lg focus-ring" />
+                                </div>
+                                ` : ''}
+                            </div>
+                            <div class="pt-4 flex justify-end">
+                                <button type="button" onclick="updateUserProfile(document.getElementById('prof-name').value, document.getElementById('prof-sid')?.value)" class="btn-primary px-6 py-2.5 rounded-lg text-white font-medium focus-ring">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+        // --- ADMIN CONTENT ---
+        function renderAdminDashboard() {
+            let content = '';
+            switch(currentAdminPage) {
+                case 'home': content = renderAdminHome(); break;
+                case 'deadlines': content = renderAdminDeadlines(); break;
+                case 'submissions': content = renderAdminSubmissions(); break;
+                case 'academics': content = renderAdminAcademics(); break;
+                case 'announcements': content = renderAdminAnnouncements(); break;
+                case 'profile': content = renderProfile(); break;
+            }
+            return `<div class="flex min-h-screen">${renderSidebar('admin')}<main class="flex-1 md:ml-64 p-4 md:p-8 overflow-y-auto h-screen">${content}</main></div>`;
+        }
+
+        function renderAdminHome() {
+            return `
+            <div class="max-w-6xl mx-auto space-y-6 animate-fade-in-up">
+                <div class="flex items-center justify-between">
+                    <div><h1 class="font-display text-3xl font-bold text-fg">Admin Dashboard</h1><p class="text-muted">System overview</p></div>
+                    <div class="font-display text-sm text-muted">${formatDate(new Date())}</div>
+                </div>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-card border border-border rounded-xl p-5 flex items-center gap-4">
+                        <div class="p-3 rounded-lg bg-blue-500/10"><svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg></div>
+                        <div><div class="text-muted text-sm">Total Students</div><div class="font-display text-2xl font-bold text-fg">${Database.users.filter(u => u.role === 'student').length}</div></div>
+                    </div>
+                    <div class="bg-card border border-border rounded-xl p-5 flex items-center gap-4">
+                        <div class="p-3 rounded-lg bg-yellow-500/10"><svg class="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+                        <div><div class="text-muted text-sm">Pending</div><div class="font-display text-2xl font-bold text-fg">${Database.submissions.filter(s => s.status === 'pending').length}</div></div>
+                    </div>
+                    <div class="bg-card border border-border rounded-xl p-5 flex items-center gap-4">
+                        <div class="p-3 rounded-lg bg-accent/10"><svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></div>
+                        <div><div class="text-muted text-sm">Active Deadlines</div><div class="font-display text-2xl font-bold text-fg">${Database.deadlines.filter(d => getDaysRemaining(d.dueDate) >= 0).length}</div></div>
+                    </div>
+                    <div class="bg-card border border-border rounded-xl p-5 flex items-center gap-4">
+                        <div class="p-3 rounded-lg bg-purple-500/10"><svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg></div>
+                        <div><div class="text-muted text-sm">Announcements</div><div class="font-display text-2xl font-bold text-fg">${Database.announcements.length}</div></div>
+                    </div>
+                </div>
+                <div class="grid lg:grid-cols-2 gap-6">
+                    <div class="bg-card border border-border rounded-xl overflow-hidden">
+                        <div class="p-4 border-b border-border"><h2 class="font-display font-semibold text-fg">Recent Submissions</h2></div>
+                        <div class="divide-y divide-border max-h-80 overflow-y-auto">
+                            ${Database.submissions.slice(0, 4).map(s => {
+                                const st = Database.users.find(u => u.studentId === s.studentId);
+                                const dl = Database.deadlines.find(d => d.id === s.deadlineId);
+                                return `<div class="p-4 flex items-center justify-between hover:bg-surface/50"><div><p class="text-sm font-medium text-fg">${st ? st.name : 'Unknown'}</p><p class="text-xs text-muted">${dl ? dl.title : ''}</p></div><span class="text-xs px-2 py-1 rounded ${s.status === 'verified' ? 'bg-accent/20 text-accent' : 'bg-yellow-500/20 text-yellow-400'}">${s.status}</span></div>`;
+                            }).join('') || '<div class="p-4 text-center text-muted text-sm">No submissions yet</div>'}
+                        </div>
+                    </div>
+                    <div class="bg-card border border-border rounded-xl overflow-hidden">
+                        <div class="p-4 border-b border-border"><h2 class="font-display font-semibold text-fg">Pinned Announcements</h2></div>
+                        <div class="divide-y divide-border">
+                            ${Database.announcements.filter(a => a.pinned).map(a => `
+                            <div class="p-4 hover:bg-surface/50"><div class="flex items-center gap-2 mb-1"><span class="w-2 h-2 rounded-full bg-accent"></span><span class="text-xs text-muted">${formatDate(a.date)}</span></div><p class="text-sm font-medium text-fg">${a.title}</p></div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+        
+        function renderAdminDeadlines() {
+            return `
+            <div class="max-w-5xl mx-auto space-y-6 animate-fade-in-up">
+                <div class="flex justify-between items-center"><div><h1 class="font-display text-2xl font-bold text-fg">Deadline Management</h1><p class="text-muted">Create and manage assignments</p></div><button onclick="document.getElementById('dl-form').classList.toggle('hidden')" class="btn-primary px-4 py-2 rounded-lg text-white font-medium focus-ring flex items-center gap-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>Add New</button></div>
+                
+                <div id="dl-form" class="hidden bg-card border border-border rounded-xl p-6">
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div><label class="block text-sm font-medium text-muted mb-1">Title</label><input type="text" id="dl-title" class="w-full px-4 py-2 rounded-lg focus-ring" /></div>
+                        <div><label class="block text-sm font-medium text-muted mb-1">Category</label><input type="text" id="dl-cat" class="w-full px-4 py-2 rounded-lg focus-ring" /></div>
+                        <div><label class="block text-sm font-medium text-muted mb-1">Due Date</label><input type="date" id="dl-date" class="w-full px-4 py-2 rounded-lg focus-ring" /></div>
+                        <div><label class="block text-sm font-medium text-muted mb-1">Priority</label><select id="dl-pri" class="w-full px-4 py-2 rounded-lg focus-ring"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></div>
+                        <div class="md:col-span-2"><label class="block text-sm font-medium text-muted mb-1">Description</label><textarea id="dl-desc" class="w-full px-4 py-2 rounded-lg focus-ring" rows="2"></textarea></div>
+                        <div class="md:col-span-2"><label class="block text-sm font-medium text-muted mb-1">Instructions</label><textarea id="dl-inst" class="w-full px-4 py-2 rounded-lg focus-ring" rows="2"></textarea></div>
+                    </div>
+                    <div class="mt-4 flex gap-3"><button onclick="addDeadline({title:document.getElementById('dl-title').value,category:document.getElementById('dl-cat').value,dueDate:document.getElementById('dl-date').value,priority:document.getElementById('dl-pri').value,description:document.getElementById('dl-desc').value,instructions:document.getElementById('dl-inst').value})" class="btn-primary px-4 py-2 rounded-lg text-white font-medium focus-ring">Create</button><button onclick="document.getElementById('dl-form').classList.add('hidden')" class="btn-secondary px-4 py-2 rounded-lg font-medium focus-ring">Cancel</button></div>
+                </div>
+                
+                <div class="space-y-3">
+                    ${Database.deadlines.map(d => `
+                    <div class="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="p-2 rounded-lg ${d.priority === 'high' ? 'bg-red-500/10' : d.priority === 'medium' ? 'bg-yellow-500/10' : 'bg-green-500/10'}"><svg class="w-5 h-5 ${d.priority === 'high' ? 'text-red-400' : d.priority === 'medium' ? 'text-yellow-400' : 'text-green-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></div>
+                            <div><h3 class="font-medium text-fg">${d.title}</h3><p class="text-sm text-muted">${formatDate(d.dueDate)}</p></div>
+                        </div>
+                        <button onclick="deleteDeadline('${d.id}')" class="p-2 rounded hover:bg-red-500/10 text-muted hover:text-red-400 transition-colors focus-ring"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                    </div>
+                    `).join('')}
+                </div>
+            </div>
+            `;
+        }
+
+        function renderAdminSubmissions() {
+            const students = Database.users.filter(u => u.role === 'student');
+            return `
+            <div class="max-w-full mx-auto space-y-6 animate-fade-in-up">
+                <div><h1 class="font-display text-2xl font-bold text-fg">Submission Tracking</h1><p class="text-muted">Review and verify student work</p></div>
+                
+                ${Database.deadlines.map(d => `
+                <div class="bg-card border border-border rounded-xl overflow-hidden">
+                    <div class="p-4 border-b border-border bg-surface/30 flex justify-between items-center">
+                        <div><h3 class="font-display font-semibold text-fg">${d.title}</h3><p class="text-xs text-muted">Due: ${formatDate(d.dueDate)}</p></div>
+                        <div class="text-sm text-muted">${Database.submissions.filter(s => s.deadlineId === d.id).length} / ${students.length} Submitted</div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="border-b border-border bg-surface/50 text-left text-muted">
+                                <tr><th class="px-4 py-3">Student</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Status</th><th class="px-4 py-3 text-right">Actions</th></tr>
+                            </thead>
+                            <tbody class="divide-y divide-border">
+                                ${students.map(st => {
+                                    const sub = Database.submissions.find(s => s.deadlineId === d.id && s.studentId === st.studentId);
+                                    return `
+                                    <tr class="hover:bg-surface/20">
+                                        <td class="px-4 py-3"><p class="font-medium text-fg">${st.name}</p><p class="text-xs text-muted">${st.studentId}</p></td>
+                                        <td class="px-4 py-3">${sub ? `<span class="px-2 py-0.5 rounded text-xs ${sub.submissionType === 'online' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}">${sub.submissionType}</span>` : '-'}</td>
+                                        <td class="px-4 py-3">${sub ? `<span class="px-2 py-0.5 rounded text-xs ${sub.status === 'verified' ? 'bg-accent/20 text-accent' : 'bg-yellow-500/20 text-yellow-400'}">${sub.status}</span>` : '<span class="text-xs text-red-400">Pending</span>'}</td>
+                                        <td class="px-4 py-3 text-right">
+                                            <div class="flex items-center justify-end gap-2">
+                                                ${sub ? `
+                                                    ${sub.submissionType === 'online' && sub.fileUrl ? `<button onclick="viewDocument('${sub.fileUrl}', '${sub.fileName}')" class="px-3 py-1 rounded border border-accent text-accent hover:bg-accent hover:text-white transition-colors text-xs focus-ring">View</button>` : ''}
+                                                    ${sub.status === 'pending' ? `<button onclick="verifySubmission('${sub.id}')" class="p-1 rounded hover:bg-surface text-muted hover:text-accent transition-colors focus-ring" title="Verify"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button>` : ''}
+                                                ` : `<button onclick="markInPersonSubmission('${d.id}', '${st.studentId}')" class="px-3 py-1 rounded border border-border text-muted hover:border-accent hover:text-accent transition-colors text-xs focus-ring">Mark In-Person</button>`}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                `).join('')}
+            </div>
+            `;
+        }
+
+        function renderAdminAcademics() {
+            return `
+            <div class="max-w-6xl mx-auto space-y-6 animate-fade-in-up">
+                <div><h1 class="font-display text-2xl font-bold text-fg">Academic Materials</h1><p class="text-muted">Upload and manage course content (Stored Offline)</p></div>
+                <div class="grid md:grid-cols-2 gap-6">
+                    ${Database.subjects.map(s => `
+                    <div class="bg-card border border-border rounded-xl overflow-hidden">
+                        <div class="p-4 border-b border-border bg-surface/50 flex justify-between items-center">
+                            <div><h3 class="font-display font-semibold text-fg">${s.name}</h3><p class="text-xs text-muted">${s.code}</p></div>
+                            <label class="cursor-pointer btn-secondary px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 focus-ring">
+                                <input type="file" class="hidden" onchange="addMaterial('${s.id}', this.files[0])">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                Upload
+                            </label>
+                        </div>
+                        <div class="p-4 space-y-2 max-h-64 overflow-y-auto">
+                            ${s.materials.length > 0 ? s.materials.map(m => `
+                            <div class="flex items-center justify-between p-2 bg-surface rounded-lg group">
+                                <div class="flex items-center gap-2 truncate"><svg class="w-4 h-4 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg><span class="text-sm text-muted truncate">${m.name}</span></div>
+                                <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onclick="viewDocument('${m.url}', '${m.name}')" class="p-1.5 hover:bg-accent/10 rounded text-muted hover:text-accent focus-ring"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></button>
+                                    <button onclick="deleteMaterial('${s.id}', '${m.id}')" class="p-1.5 hover:bg-red-500/10 rounded text-muted hover:text-red-400 focus-ring"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                                </div>
+                            </div>
+                            `).join('') : '<p class="text-center text-muted text-sm py-4">No materials uploaded.</p>'}
+                        </div>
+                    </div>
+                    `).join('')}
+                </div>
+            </div>
+            `;
+        }
+
+        function renderAdminAnnouncements() {
+            return `
+            <div class="max-w-3xl mx-auto space-y-6 animate-fade-in-up">
+                <div><h1 class="font-display text-2xl font-bold text-fg">Announcements</h1><p class="text-muted">Broadcast updates to students</p></div>
+                <div class="bg-card border border-border rounded-xl p-5">
+                    <h3 class="font-medium text-fg mb-3">Post New Announcement</h3>
+                    <div class="space-y-3">
+                        <input type="text" id="ann-title" class="w-full px-4 py-2 rounded-lg focus-ring" placeholder="Title">
+                        <textarea id="ann-content" class="w-full px-4 py-2 rounded-lg focus-ring" rows="3" placeholder="Content..."></textarea>
+                        <button onclick="addAnnouncement({title:document.getElementById('ann-title').value,content:document.getElementById('ann-content').value})" class="btn-primary px-4 py-2 rounded-lg text-white font-medium focus-ring">Post</button>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    ${Database.announcements.map(a => `
+                    <div class="bg-card border border-border rounded-xl p-4 flex items-start justify-between gap-4">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                ${a.pinned ? '<svg class="w-4 h-4 text-accent" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 2z"/></svg>' : ''}
+                                <span class="text-xs text-muted">${formatDate(a.date)}</span>
+                                ${a.pinned ? '<span class="text-xs px-1.5 py-0.5 rounded bg-accent/20 text-accent">Pinned</span>' : ''}
+                            </div>
+                            <h3 class="font-medium text-fg">${a.title}</h3>
+                            <p class="text-sm text-muted mt-1">${a.content}</p>
+                        </div>
+                        <div class="flex gap-1 flex-shrink-0">
+                            <button onclick="togglePinAnnouncement('${a.id}')" class="p-2 rounded hover:bg-surface text-muted hover:text-accent transition-colors focus-ring" title="Toggle Pin"><svg class="w-4 h-4" fill="${a.pinned ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg></button>
+                            <button onclick="deleteAnnouncement('${a.id}')" class="p-2 rounded hover:bg-red-500/10 text-muted hover:text-red-400 transition-colors focus-ring" title="Delete"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                        </div>
+                    </div>
+                    `).join('')}
+                </div>
+            </div>
+            `;
+        }
+
+        // Initialize App
+        render();
+    </script>
+</body>
+</html>
